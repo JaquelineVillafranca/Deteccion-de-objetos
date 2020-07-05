@@ -1,0 +1,149 @@
+# If you want to test the code with your images, just add path to the images to the TEST_IMAGE_PATHS.
+PATH_TO_TEST_IMAGES_DIR = pathlib.Path('models/research/object_detection/test_images')
+TEST_IMAGE_PATHS = sorted(list(PATH_TO_TEST_IMAGES_DIR.glob("*.jpg")))
+TEST_IMAGE_PATHS
+import cv2
+cap = cv2.VideoCapture(0)
+def show_inference(model, image_path):
+  # the array based representation of the image will be used later in order to prepare the
+  # result image with boxes and labels on it.
+  image_np = np.array(Image.open(image_path))
+  # Actual detection.
+  output_dict = run_inference_for_single_image(model, image_np)
+  # Visualization of the results of a detection.
+  vis_util.visualize_boxes_and_labels_on_image_array(
+      image_np,
+      output_dict['detection_boxes'],
+      output_dict['detection_classes'],
+      output_dict['detection_scores'],
+      category_index,
+      instance_masks=output_dict.get('detection_masks_reframed', None),
+      use_normalized_coordinates=True,
+      line_thickness=8)
+  display(Image.fromarray(image_np))
+  while True:
+        # Read frame from camera
+        ret, image_np = cap.read()
+       
+        # Actual detection.
+        output_dict = detection_parameters(detection_model, image_np)
+        # detected object visualization.
+        vis_util.visualize_boxes_and_labels_on_image_array(
+        image_np,
+        output_dict['detection_boxes'],
+        output_dict['detection_classes'],
+        output_dict['detection_scores'],
+        category_index,
+        instance_masks=output_dict.get('detection_masks_reframed', None),
+        use_normalized_coordinates=True,
+        line_thickness=8)
+       
+        cv2.imshow('object detection', cv2.resize(image_np, (800, 600)))
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+                cv2.destroyAllWindows()
+                break
+                !pip install -U --pre tensorflow=="2.*"
+!pip install pycocotools
+import os
+import pathlib
+if "models" in pathlib.Path.cwd().parts:
+  while "models" in pathlib.Path.cwd().parts:
+    os.chdir('..')
+elif not pathlib.Path('models').exists():
+  !git clone --depth 1 https://github.com/tensorflow/models
+  %%bash 
+cd models/research 
+pip install .
+import numpy as np
+import os
+import six.moves.urllib as urllib
+import sys
+import tarfile
+import tensorflow as tf
+import zipfile
+from collections import defaultdict
+from io import StringIO
+from matplotlib import pyplot as plt
+from PIL import Image
+from IPython.display import display
+from object_detection.utils import ops as utils_ops
+from object_detection.utils import label_map_util
+from object_detection.utils import visualization_utils as vis_util
+# patch tf1 into `utils.ops`
+utils_ops.tf = tf.compat.v1
+# Patch the location of gfile
+tf.gfile = tf.io.gfile
+def Load_My_Model(Model_Name):
+  base_url = 'http://download.tensorflow.org/models/object_detection/'
+  model_file = Model_Name + '.tar.gz'
+  model_directory = tf.keras.utils.get_file(
+    fname=Model_Name, 
+    origin=base_url + model_file,
+    untar=True)
+  model_directory = pathlib.Path(model_directory)/"saved_model"
+  my_model = tf.saved_model.load(str(model_directory))
+  my_model = my_model.signatures['serving_default']
+  return my_model
+  # List of the strings that is used to add correct label for each box.
+PATH_TO_LABELS = 'models/research/object_detection/data/mscoco_label_map.pbtxt'
+category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)
+Model = 'ssd_mobilenet_v1_coco_2017_11_17'
+detection_model = Load_My_Model(Model)
+print(detection_model.inputs)
+detection_model.output_dtypes
+detection_model.output_shapes
+def detection_parameters(my_model, obj):
+  obj = np.asarray(obj)
+  # converting the input using `tf.convert_to_tensor`.
+  input_tensor_obj = tf.convert_to_tensor(obj)
+  
+  input_tensor_obj = input_tensor_obj[tf.newaxis,...]
+  # Run inference
+  output_dictionary = my_model(input_tensor_obj)
+  
+  
+  # considering only the first num_detection
+  num_detections = int(output_dictionary.pop('num_detections'))
+  output_dictionary = {key:val[0, :num_detections].numpy() 
+                 for key,val in output_dictionary.items()}
+  output_dictionary['num_detections'] = num_detections
+  
+  output_dictionary['detection_classes'] = output_dictionary['detection_classes'].astype(np.int64)
+   
+  # Handle models with masks:
+  if 'detection_masks' in output_dictionary:
+    # Reframe the the box mask to the image size.
+    detection_masks_reframed = utils_ops.reframe_box_masks_to_image_masks(
+              output_dictionary['detection_masks'], output_dictionary['detection_boxes'],
+               obj.shape[0], obj.shape[1])      
+    detection_masks_reframed = tf.cast(detection_masks_reframed > 0.5,
+                                       tf.uint8)
+    output_dictionary['detection_masks_reframed'] = detection_masks_reframed.numpy()
+    
+  return output_dictionary
+  model_name = "mask_rcnn_inception_resnet_v2_atrous_coco_2018_01_28"
+masking_model = Load_My_Model("mask_rcnn_inception_resnet_v2_atrous_coco_2018_01_28")
+masking_model.output_shapes
+import cv2
+cap = cv2.VideoCapture(0)
+while True:
+        # Read frame from camera
+        ret, image_np = cap.read()
+       
+        # Actual detection.
+        output_dict = detection_parameters(detection_model, image_np)
+        # detected object visualization.
+        vis_util.visualize_boxes_and_labels_on_image_array(
+        image_np,
+        output_dict['detection_boxes'],
+        output_dict['detection_classes'],
+        output_dict['detection_scores'],
+        category_index,
+        instance_masks=output_dict.get('detection_masks_reframed', None),
+        use_normalized_coordinates=True,
+        line_thickness=8)
+       
+        cv2.imshow('object detection', cv2.resize(image_np, (800, 600)))
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+                cv2.destroyAllWindows()
+                break
